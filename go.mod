@@ -8,13 +8,13 @@ require (
 	github.com/onsi/ginkgo/v2 v2.5.1
 	github.com/onsi/gomega v1.24.1
 	github.com/openshift/api v3.9.0+incompatible
-	github.com/openstack-k8s-operators/keystone-operator/api v0.0.0-20221123090515-e2561e258f0a
-	github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20221124114404-c42a739be111
-	github.com/openstack-k8s-operators/lib-common/modules/database v0.0.0-20221115095652-2c390a9d20b4
-	github.com/openstack-k8s-operators/lib-common/modules/test v0.0.0-20221115095652-2c390a9d20b4
-	github.com/openstack-k8s-operators/mariadb-operator/api v0.0.0-20221122141723-fb7400f56094
+	github.com/openstack-k8s-operators/keystone-operator/api b9019b4533f4
+	github.com/openstack-k8s-operators/lib-common/modules/common 662fe86a2458
+	github.com/openstack-k8s-operators/lib-common/modules/database 662fe86a2458
+	github.com/openstack-k8s-operators/lib-common/modules/test 662fe86a2458
+	github.com/openstack-k8s-operators/mariadb-operator/api a92e79afefb7
 	github.com/openstack-k8s-operators/nova-operator/api v0.0.0-00010101000000-000000000000
-	github.com/openstack-k8s-operators/openstack-operator/apis v0.0.0-20221201150228-f59193372831
+	github.com/openstack-k8s-operators/openstack-operator/apis 33024334ba13
 	go.uber.org/zap v1.24.0
 	k8s.io/api v0.25.5
 	k8s.io/apimachinery v0.26.0
