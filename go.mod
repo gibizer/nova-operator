@@ -18,6 +18,7 @@ require (
 	github.com/openstack-k8s-operators/mariadb-operator/api v0.0.0-20230407130717-3b0b46bac46c
 	github.com/openstack-k8s-operators/nova-operator/api v0.0.0-20221209164002-f9e6b9363961
 	github.com/openstack-k8s-operators/openstack-ansibleee-operator/api v0.0.0-20230411152716-4e71d9b1b55c
+	github.com/stretchr/testify v1.8.1
 	go.uber.org/zap v1.24.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.26.3
@@ -56,6 +57,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/openstack-k8s-operators/lib-common/modules/openstack v0.0.0-20230314121334-30ee8131cd07 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
