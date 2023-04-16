@@ -19,25 +19,12 @@ import (
 	"testing"
 	"time"
 
-	functional "github.com/openstack-k8s-operators/nova-operator/test/functional_testify"
+	base "github.com/openstack-k8s-operators/nova-operator/test/functional2"
 	"github.com/stretchr/testify/suite"
 )
 
 type NovaSuite struct {
-	functional.EnvTestSuite
-}
-
-func (suite *NovaSuite) SetupSuite() {
-	suite.T().Log("SetupTest")
-	suite.EnvTestSuite.SetupSuite()
-}
-
-func (suite *NovaSuite) SetupTest() {
-	suite.T().Log("SetupTest")
-}
-
-func (suite *NovaSuite) TearDownTest() {
-	suite.T().Log("TearDownTest")
+	base.EnvTestSuite
 }
 
 func (suite *NovaSuite) TestCreate1() {

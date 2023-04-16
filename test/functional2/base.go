@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package functional
+package functional2
 
 import (
 	"context"
@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
+	"github.com/onsi/gomega"
 	"github.com/openstack-k8s-operators/lib-common/modules/test"
 	"github.com/openstack-k8s-operators/nova-operator/controllers"
 	"github.com/stretchr/testify/suite"
@@ -47,8 +48,6 @@ import (
 	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
 	novav1beta1 "github.com/openstack-k8s-operators/nova-operator/api/v1beta1"
 	aee "github.com/openstack-k8s-operators/openstack-ansibleee-operator/api/v1alpha1"
-
-	. "github.com/openstack-k8s-operators/lib-common/modules/test/helpers"
 )
 
 const (
@@ -72,13 +71,14 @@ func (suite *BaseSuite) DeferCleanup(fn func()) {
 
 type EnvTestSuite struct {
 	BaseSuite
+	*TestHelper
+
 	cfg       *rest.Config
-	k8sClient client.Client
+	K8sClient client.Client
 	testEnv   *envtest.Environment
-	ctx       context.Context
+	Ctx       context.Context
 	cancel    context.CancelFunc
 	suiteLog  logr.Logger
-	th        *TestHelper
 
 	Namespace string
 }
@@ -89,7 +89,7 @@ func (suite *EnvTestSuite) setupEnvtest() {
 		o.TimeEncoder = zapcore.ISO8601TimeEncoder
 	}))
 
-	suite.ctx, suite.cancel = context.WithCancel(context.TODO())
+	suite.Ctx, suite.cancel = context.WithCancel(context.TODO())
 
 	const gomod = "../../../go.mod"
 
@@ -164,11 +164,11 @@ func (suite *EnvTestSuite) setupEnvtest() {
 
 	suite.suiteLog = ctrl.Log.WithName("---Test")
 
-	suite.k8sClient, err = client.New(suite.cfg, client.Options{Scheme: scheme.Scheme})
+	suite.K8sClient, err = client.New(suite.cfg, client.Options{Scheme: scheme.Scheme})
 	suite.Assert().NoError(err)
-	suite.Assert().NotNil(suite.k8sClient)
-	suite.th = NewTestHelper(suite.ctx, suite.k8sClient, timeout, interval, suite.suiteLog)
-	suite.Assert().NotNil(suite.th)
+	suite.Assert().NotNil(suite.K8sClient)
+	suite.TestHelper = NewTestHelper(suite.Ctx, suite.K8sClient, timeout, interval, suite.suiteLog)
+	suite.Assert().NotNil(suite.TestHelper)
 
 	// Start the controller-manager in a goroutine
 	k8sManager, err := ctrl.NewManager(suite.cfg, ctrl.Options{
@@ -193,7 +193,7 @@ func (suite *EnvTestSuite) setupEnvtest() {
 
 	go func() {
 		//		defer GinkgoRecover()
-		err = k8sManager.Start(suite.ctx)
+		err = k8sManager.Start(suite.Ctx)
 		suite.Assert().NoError(err)
 	}()
 
@@ -206,12 +206,15 @@ func (suite *EnvTestSuite) tearDownEnvTest() {
 }
 
 func (suite *EnvTestSuite) SetupSuite() {
-	suite.T().Log("SetupSuite")
+	// NOTE(gibi) To support Gomega we need to define for Gomega how to
+	// report an assertion failure to the test library.
+	gomega.RegisterFailHandler(func(message string, callerSkip ...int) {
+		suite.Assert().Fail(message)
+	})
 	suite.setupEnvtest()
 }
 
 func (suite *EnvTestSuite) TearDownSuite() {
-	suite.T().Log("TearDownSuite")
 	suite.tearDownEnvTest()
 }
 
@@ -221,11 +224,10 @@ func (suite *EnvTestSuite) SetupTest() {
 	// as namespaces cannot be deleted in a locally running envtest. See
 	// https://book.kubebuilder.io/reference/envtest.html#namespace-usage-limitation
 	suite.Namespace = uuid.New().String()
-	suite.th.CreateNamespace(suite.Namespace)
+	suite.CreateNamespace(suite.Namespace)
 	// We still request the delete of the Namespace to properly cleanup if
 	// we run the test in an existing cluster.
-	suite.DeferCleanup(func() { suite.th.DeleteNamespace(suite.Namespace) })
-
+	suite.DeferCleanup(func() { suite.DeleteNamespace(suite.Namespace) })
 }
 
 func (suite *EnvTestSuite) Log() logr.Logger {
