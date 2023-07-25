@@ -1,0 +1,67 @@
+{
+  "timezone": "America/New_York",
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base"
+  ],
+  "dependencyDashboard": true,
+  "logFileLevel": "trace",
+  "enabledManagers": ["gomod"],
+  "postUpdateOptions": ["gomodTidy"],
+  "constraints": {
+    "go": "1.19"
+  },
+  "schedule":[
+    "every weekend"
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": ["go"],
+      "enabled": false
+    },
+    {
+      "groupName": "openstack-k8s-operators",
+      "matchPackagePatterns": ["^github.com/openstack-k8s-operators"],
+      "enabled": true
+    },
+    {
+      "groupName": "k8s.io",
+      "matchPackagePatterns": ["^k8s.io"],
+      "allowedVersions": "< 0.27.0",
+      "enabled": true
+    },
+    // We disable kube-openapi tracking as it has no tags.
+    // The automatic bumping of the other k8s.io dependencies
+    // will bring this forward to keep it compatible
+    {
+      "groupName": "k8s.io/kube-openapi",
+      "matchPackagePatterns": ["^k8s.io/kube-openapi"],
+      "enabled": false
+    },
+    {
+      "groupName": "sigs.k8s.io/controller-runtime",
+      "matchPackagePatterns": ["^sigs.k8s.io/controller-runtime"],
+      "allowedVersions": "< 0.15.0",
+      "enabled": true
+    },
+    // We need to manually select a version to bump to as there
+    // are no tags in the repo and we are not compatible with
+    // the master branch yet
+    {
+      "groupName": "openshift",
+      "matchPackageNames": ["github.com/openshift/api"],
+      "enabled": false
+    },
+    {
+      "groupName": "mergo",
+      "matchPackagePatterns": ["^github.com/imdario/mergo"],
+      "allowedVersions": "< 1.0.0",
+      "enabled": true
+    },
+    {
+      "groupName": "misc",
+      "matchPackagePatterns": ["^github.com/operator-framework/api", "^github.com/ghodss", "^github.com/go-logr/logr", "^go.uber.org/zap"],
+      "enabled": true
+    }
+  ]
+}

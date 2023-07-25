@@ -1,10 +1,17 @@
 {
   "extends": [
-    "github>openstack-k8s-operators/renovate-config"
+    "github>gibizer/nova-operator:xyz"
+
   ],
   "constraints": {
     "go": "1.19"
   },
+  "packageRules": [
+    {
+      "matchPackageNames": ["github.com/openstack-k8s-operators/nova-operator/api"],
+      "enabled": false
+    }
+  ],
   "postUpgradeTasks": {
     "commands": ["make gowork", "make tidy", "make manifests generate"],
     "fileFilters": ["**/go.mod", "**/go.sum", "**/*.go", "**/*.yaml"],
