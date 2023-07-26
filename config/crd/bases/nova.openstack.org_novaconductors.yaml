@@ -75,7 +75,7 @@ spec:
                 type: string
               cellName:
                 description: CellName is the name of the Nova Cell this conductor
-                  belongs to.
+                  belongs to. This field is immutable, it can only be set at create
                 type: string
               containerImage:
                 description: The service specific Container Image URL (will be set

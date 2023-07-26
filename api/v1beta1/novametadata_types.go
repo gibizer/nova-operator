@@ -78,6 +78,7 @@ type NovaMetadataSpec struct {
 	// +kubebuilder:validation:Optional
 	// CellName is the name of the Nova Cell this metadata service belongs to.
 	// If not provided then the metadata serving every cells in the deployment
+	// This field is immutable, it can only be set at create
 	CellName string `json:"cellName,omitempty"`
 
 	// +kubebuilder:validation:Required

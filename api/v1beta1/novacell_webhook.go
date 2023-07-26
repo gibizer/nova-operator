@@ -126,8 +126,24 @@ func (r *NovaCell) ValidateCreate() error {
 	return nil
 }
 
+func (r *NovaCellSpec) ensureCellNameImmutable(old NovaCellSpec, basePath *field.Path) field.ErrorList {
+	var errors field.ErrorList
+	if old.CellName != r.CellName {
+		errors = append(errors, field.Invalid(
+			basePath.Child("cellName"), r.CellName, "field is immutable, it can only be set at create"),
+		)
+	}
+
+	return errors
+}
+
 func (r *NovaCellSpec) ValidateUpdate(old NovaCellSpec, basePath *field.Path) field.ErrorList {
-	return r.validate(basePath)
+	var errors field.ErrorList
+
+	errors = append(errors, r.validate(basePath)...)
+	errors = append(errors, r.ensureCellNameImmutable(old, basePath)...)
+
+	return errors
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type

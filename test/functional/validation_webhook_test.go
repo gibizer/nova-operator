@@ -200,4 +200,36 @@ var _ = Describe("Nova validation", func() {
 			}),
 		)
 	})
+	It("rejects NovaCell CellName change after create", func() {
+		spec := GetDefaultNovaCellSpec("cell1")
+		raw := map[string]interface{}{
+			"apiVersion": "nova.openstack.org/v1beta1",
+			"kind":       "NovaCell",
+			"metadata": map[string]interface{}{
+				"name":      cell1.CellName.Name,
+				"namespace": novaNames.Namespace,
+			},
+			"spec": spec,
+		}
+		unstructuredObj := &unstructured.Unstructured{Object: raw}
+		_, err := controllerutil.CreateOrPatch(
+			ctx, k8sClient, unstructuredObj, func() error { return nil })
+		Expect(err).ShouldNot(HaveOccurred())
+
+		// Try to change the CellName after the create
+		cell := GetNovaCell(cell1.CellName)
+		_, err = controllerutil.CreateOrPatch(ctx, k8sClient, cell, func() error {
+			cell.Spec.CellName = "other-cell"
+			return nil
+		})
+		Expect(err).Should(HaveOccurred())
+		statusError, ok := err.(*errors.StatusError)
+		Expect(ok).To(BeTrue())
+		Expect(statusError.ErrStatus.Details.Kind).To(Equal("NovaCell"))
+		Expect(statusError.ErrStatus.Message).To(
+			ContainSubstring(
+				"invalid: spec.cellName: " +
+					"Invalid value: \"other-cell\": field is immutable, it can only be set at create"),
+		)
+	})
 })

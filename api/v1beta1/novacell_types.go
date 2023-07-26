@@ -90,6 +90,7 @@ type NovaCellSpec struct {
 	// meaning. The "cell0" Cell cannot have compute nodes associated and the
 	// conductor in this cell acts as the super conductor for all the cells in
 	// the deployment.
+	// This field is immutable, it can only be set at create
 	CellName string `json:"cellName"`
 
 	// +kubebuilder:validation:Required

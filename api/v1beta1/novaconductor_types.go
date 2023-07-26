@@ -72,6 +72,7 @@ type NovaConductorSpec struct {
 
 	// +kubebuilder:validation:Required
 	// CellName is the name of the Nova Cell this conductor belongs to.
+	// This field is immutable, it can only be set at create
 	CellName string `json:"cellName"`
 
 	// +kubebuilder:validation:Required
