@@ -65,7 +65,7 @@ var _ = Describe("NovaCell controller", func() {
 			Expect(instance.Status.ConductorServiceReadyCount).To(Equal(int32(0)))
 			Expect(instance.Status.MetadataServiceReadyCount).To(Equal(int32(0)))
 			Expect(instance.Status.NoVNCPRoxyServiceReadyCount).To(Equal(int32(0)))
-			Expect(instance.Status.NovaComputesStatuses).To(HaveLen(int(0)))
+			Expect(instance.Status.NovaComputesStatus).To(HaveLen(int(0)))
 		})
 	})
 
@@ -336,13 +336,15 @@ var _ = Describe("NovaCell controller", func() {
 			th.SimulateJobSuccess(cell1.HostDiscoveryJobName)
 			th.SimulateStatefulSetReplicaReady(cell1.NoVNCProxyStatefulSetName)
 			th.SimulateStatefulSetReplicaReady(cell1.MetadataStatefulSetName)
-
+			cell := GetNovaCell(cell1.CellCRName)
 			th.ExpectCondition(
 				cell1.CellCRName,
 				ConditionGetterFunc(NovaCellConditionGetter),
 				condition.ReadyCondition,
 				corev1.ConditionTrue,
 			)
+
+			Expect(cell.Status.NovaComputesStatus).To(HaveKey("ironic-compute"))
 		})
 
 		It("deletes NoVNCProxy if it is disabled later", func() {

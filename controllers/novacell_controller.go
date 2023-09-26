@@ -166,33 +166,43 @@ func (r *NovaCellReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 
 	}
 
+	// manage nova-computes with selected driver based on created template
+	// we need to keep statuses for deleting and discover action and also create map with hashes
+	// to run discover job only when all computes are deployed and never discovered
+	computeTemplatesHashMap := make(map[string]string)
+	novaComputeImage := ""
 	for computeName, computeTemplate := range instance.Spec.NovaComputeTemplates {
-		_, computeStatus, _ := r.ensureNovaCompute(ctx, h, instance, computeTemplate, computeName, secret)
-		instance.Status.NovaComputesStatuses[computeName] = computeStatus
+		computeStatus := r.ensureNovaCompute(ctx, h, instance, computeTemplate, computeName, secret)
+		instance.Status.NovaComputesStatus[computeName] = computeStatus
+		// We hash the entire compute template to keep track of changes in the number of replicas,
+		// allowing us to discover nodes accordingly
+		computeTemplatesHashMap[computeName], _ = util.ObjectHash(computeTemplate)
+		// TODO(ksambor) nova-compute image should be global also for templates
+		novaComputeImage = computeTemplate.ContainerImage
 	}
 
 	// We need to delete nova computes based on current templates and statuses from previous runs
-	for computeName := range instance.Status.NovaComputesStatuses {
+	for computeName := range instance.Status.NovaComputesStatus {
 		_, ok := instance.Spec.NovaComputeTemplates[computeName]
 		if !ok {
 			err = r.ensureNovaComputeDeleted(ctx, h, instance, computeName)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
-			delete(instance.Status.NovaComputesStatuses, computeName)
+			delete(instance.Status.NovaComputesStatus, computeName)
 		}
 
 	}
 
+	allComputeDeployed := false
 	// We need to check if all computes are deployed
 	if len(instance.Spec.NovaComputeTemplates) == 0 {
 		util.LogForObject(h, "No compute nodes in cell", instance)
 		instance.Status.Conditions.Remove(novav1.NovaAllComputesReadyCondition)
 	} else {
-		allComputesReady := false
 		failedComputes := []string{}
 		readyComputes := []string{}
-		for computeName, computeStatus := range instance.Status.NovaComputesStatuses {
+		for computeName, computeStatus := range instance.Status.NovaComputesStatus {
 			if computeStatus.Deployed {
 				readyComputes = append(readyComputes, computeName)
 			}
@@ -201,16 +211,37 @@ func (r *NovaCellReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 			}
 		}
 		if len(instance.Spec.NovaComputeTemplates) == len(readyComputes) {
-			instance.Status.Conditions.MarkTrue(
-				novav1.NovaAllComputesReadyCondition, condition.ServiceConfigReadyMessage,
-			)
+			allComputeDeployed = true
 		}
 
 		util.LogForObject(
 			h, "Nova compute statuses", instance,
 			"ready", readyComputes,
 			"failed", failedComputes,
-			"all computes ready", allComputesReady)
+		)
+	}
+
+	computeTemplatesHash, err := hashOfStringMap(computeTemplatesHashMap)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// When the nova compute is ready we need to discover service
+	// TODO(ksambor) we need to move job to nova lvl to avoid order issue with
+	// mapping job which should be run before
+	if allComputeDeployed {
+		status, err := r.ensureNovaComputeDiscover(
+			ctx, h, instance, novaComputeImage, secret, computeTemplatesHash)
+
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if status == nova.ComputeDiscoverReady {
+			instance.Status.Hash[novav1.ComputeDiscoverHashKey] = computeTemplatesHash
+			instance.Status.Conditions.MarkTrue(
+				novav1.NovaAllComputesReadyCondition, condition.ServiceConfigReadyMessage,
+			)
+		}
 	}
 
 	cellHasVNCService := (*instance.Spec.NoVNCProxyServiceTemplate.Enabled)
@@ -274,8 +305,8 @@ func (r *NovaCellReconciler) initStatus(
 	if instance.Status.Hash == nil {
 		instance.Status.Hash = map[string]string{}
 	}
-	if instance.Status.NovaComputesStatuses == nil {
-		instance.Status.NovaComputesStatuses = map[string]novav1.NovaComputeCellStatus{}
+	if instance.Status.NovaComputesStatus == nil {
+		instance.Status.NovaComputesStatus = map[string]novav1.NovaComputeCellStatus{}
 	}
 
 	return nil
@@ -661,7 +692,7 @@ func (r *NovaCellReconciler) ensureNovaComputeDeleted(
 	// OK this was created by us so we go and delete it
 	err = r.Client.Delete(ctx, compute)
 	if err != nil && k8s_errors.IsNotFound(err) {
-		return nil
+		return err
 	}
 	util.LogForObject(
 		h, "NovaCompute isn't defined in the cell, so deleted NovaCompute",
@@ -677,7 +708,7 @@ func (r *NovaCellReconciler) ensureNovaCompute(
 	compute novav1.NovaComputeTemplate,
 	computeName string,
 	secret corev1.Secret,
-) (ctrl.Result, novav1.NovaComputeCellStatus, error) {
+) novav1.NovaComputeCellStatus {
 	// There is a case when the user manually created a NovaCompute with selected name.
 	// One can think that this means the cell adopts the NovaCompute and
 	// starts managing it.
@@ -692,13 +723,14 @@ func (r *NovaCellReconciler) ensureNovaCompute(
 	novacompute := &novav1.NovaCompute{}
 	err := r.Client.Get(ctx, fullComputeName, novacompute)
 	var computeStatus novav1.NovaComputeCellStatus
-	if computeStatus, ok := instance.Status.NovaComputesStatuses[computeName]; ok {
+	if computeStatus, ok := instance.Status.NovaComputesStatus[computeName]; ok {
 		computeStatus.Errors = false
 	} else {
 		computeStatus = novav1.NovaComputeCellStatus{Deployed: false, Errors: false}
 	}
 	if err != nil && !k8s_errors.IsNotFound(err) {
-		return ctrl.Result{}, computeStatus, err
+		computeStatus.Errors = true
+		return computeStatus
 	}
 
 	// If it is not created by us, we don't touch it
@@ -714,7 +746,7 @@ func (r *NovaCellReconciler) ensureNovaCompute(
 
 		computeStatus.Errors = true
 
-		return ctrl.Result{}, computeStatus, err
+		return computeStatus
 	}
 
 	novacomputeSpec := novav1.NewNovaComputeSpec(instance.Spec, compute, computeName)
@@ -740,48 +772,31 @@ func (r *NovaCellReconciler) ensureNovaCompute(
 
 	if err != nil {
 		computeStatus.Errors = true
-		return ctrl.Result{}, computeStatus, err
+		return computeStatus
 	}
 
 	if op != controllerutil.OperationResultNone {
 		util.LogForObject(h, fmt.Sprintf("NovaCompute %s.", string(op)), instance, "NovaCompute.Name", novacompute.Name)
 	}
 
-	if !novacompute.IsReady() {
-		// We wait for the novacompute to become Ready before we map it in the
-		// nova_api DB.
-		return ctrl.Result{}, computeStatus, err
-	}
-
-	// When the nova compute is ready we need to discover service
-	status, err := r.ensureNovaComputeDiscover(
-		ctx, h, instance,
-		novacompute, compute, secret)
-	if err != nil {
-		computeStatus.Errors = true
-		computeStatus.Deployed = false
-		return ctrl.Result{}, computeStatus, err
-	}
-	computeStatus.Errors = false
-	if status != nova.ComputeDiscoverReady {
-		// Job is still running. We can simply return as we will be reconciled
-		// when the Job status changes
+	if novacompute.IsReady() {
+		// We wait for the novacompute to become Ready before we map it deployed.
 		computeStatus.Deployed = true
 	}
 
-	return ctrl.Result{}, computeStatus, nil
+	return computeStatus
 }
 
 func (r *NovaCellReconciler) ensureNovaComputeDiscover(
 	ctx context.Context,
 	h *helper.Helper,
 	instance *novav1.NovaCell,
-	novacompute *novav1.NovaCompute,
-	computeTemplate novav1.NovaComputeTemplate,
+	image string,
 	novaSecret corev1.Secret,
+	jobHash string,
 ) (nova.NovaComputeStatus, error) {
-	configName := fmt.Sprintf("%s-config-data", instance.Name+"-manage")
-	scriptName := fmt.Sprintf("%s-scripts", instance.Name+"-manage")
+	configName := fmt.Sprintf("%s-config-data", instance.Name+"-discover-hosts")
+	scriptName := fmt.Sprintf("%s-scripts", instance.Name+"-discover-hosts")
 
 	cmLabels := labels.GetLabels(
 		instance, labels.GetGroupLabel(NovaLabelPrefix), map[string]string{},
@@ -828,13 +843,8 @@ func (r *NovaCellReconciler) ensureNovaComputeDiscover(
 	}
 
 	configHash := make(map[string]env.Setter)
-	err := secret.EnsureSecrets(ctx, h, novacompute, cms, &configHash)
+	err := secret.EnsureSecrets(ctx, h, instance, cms, &configHash)
 
-	if err != nil {
-		return nova.ComputeDiscoverFailed, err
-	}
-
-	inputHash, err := util.HashOfInputHashes(configHash)
 	if err != nil {
 		return nova.ComputeDiscoverFailed, err
 	}
@@ -842,11 +852,11 @@ func (r *NovaCellReconciler) ensureNovaComputeDiscover(
 	labels := map[string]string{
 		common.AppSelector: NovaLabelPrefix,
 	}
-	jobDef := nova_compute.HostDiscoveryJob(instance, novacompute, configName, scriptName, inputHash, labels)
+	jobDef := nova_compute.HostDiscoveryJob(instance, configName, scriptName, image, jobHash, labels)
 
 	job := job.NewJob(
 		jobDef, instance.Name+"-host-discover",
-		instance.Spec.Debug.PreserveJobs, r.RequeueTimeout, novacompute.Name)
+		instance.Spec.Debug.PreserveJobs, r.RequeueTimeout, instance.Name)
 
 	result, err := job.DoJob(ctx, h)
 	if err != nil {
@@ -864,7 +874,7 @@ func (r *NovaCellReconciler) ensureNovaComputeDiscover(
 		return nova.ComputeDiscoverReady, nil
 	}
 
-	r.Log.Info(fmt.Sprintf("Job %s hash added - %s", jobDef.Name, novacompute.Name))
+	r.Log.Info(fmt.Sprintf("Job %s hash added - %s", jobDef.Name, instance.Name))
 
 	return nova.ComputeDiscoverReady, nil
 }
@@ -884,7 +894,7 @@ func (r *NovaCellReconciler) generateComputeConfigs(
 		"default_user_domain":    "Default",   // fixme
 		"compute_driver":         "libvirt.LibvirtDriver",
 		"transport_url":          string(secret.Data[TransportURLSelector]),
-		"log_file":               "/var/log/nova/nova-compute.log",
+		"log_file":               "/var/log/containers/nova/nova-compute.log",
 	}
 	// vnc is optional so we only need to configure it for the compute
 	// if the proxy service is deployed in the cell

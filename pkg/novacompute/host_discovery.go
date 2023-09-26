@@ -27,9 +27,9 @@ import (
 
 func HostDiscoveryJob(
 	instance *novav1.NovaCell,
-	novacompute *novav1.NovaCompute,
 	configName string,
 	scriptName string,
+	image string,
 	inputHash string,
 	labels map[string]string,
 ) *batchv1.Job {
@@ -43,6 +43,10 @@ func HostDiscoveryJob(
 	envVars := map[string]env.Setter{}
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["KOLLA_BOOTSTRAP"] = env.SetValue("true")
+
+	// This is stored in the Job so that if the input of the job changes
+	// then it results in a new job hash and therefore lib-common will re-run
+	// the job
 	envVars["INPUT_HASH"] = env.SetValue(inputHash)
 
 	env := env.MergeEnvs([]corev1.EnvVar{}, envVars)
@@ -71,7 +75,7 @@ func HostDiscoveryJob(
 								"/bin/bash",
 							},
 							Args:  args,
-							Image: novacompute.Spec.ContainerImage,
+							Image: image,
 							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: &runAsUser,
 							},
