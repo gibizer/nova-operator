@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
 
+	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	novav1 "github.com/openstack-k8s-operators/nova-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -77,6 +78,16 @@ func CreateNovaWith3CellsAndEnsureReady(novaNames NovaNames) {
 
 	DeferCleanup(th.DeleteInstance, CreateNova(novaNames.NovaName, spec))
 	DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(novaNames.NovaName.Namespace))
+	memcachedSpec := memcachedv1.MemcachedSpec{
+		Replicas: ptr.To(int32(3)),
+	}
+	memcachedNamespace := types.NamespacedName{
+		Name:      MemcachedInstance,
+		Namespace: novaNames.NovaName.Namespace,
+	}
+
+	DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(novaNames.NovaName.Namespace, MemcachedInstance, memcachedSpec))
+	infra.SimulateMemcachedReady(memcachedNamespace)
 	keystone.SimulateKeystoneServiceReady(novaNames.KeystoneServiceName)
 	// END of common logic with Nova multicell test
 
@@ -113,6 +124,7 @@ func CreateNovaWith3CellsAndEnsureReady(novaNames NovaNames) {
 	th.SimulateJobSuccess(cell2.CellMappingJobName)
 	th.SimulateStatefulSetReplicaReady(novaNames.SchedulerStatefulSetName)
 	th.SimulateStatefulSetReplicaReady(novaNames.MetadataStatefulSetName)
+
 	th.ExpectCondition(
 		novaNames.NovaName,
 		ConditionGetterFunc(NovaConditionGetter),

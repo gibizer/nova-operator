@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -28,12 +29,25 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 )
 
 var _ = Describe("NovaAPI controller", func() {
+	BeforeEach(func() {
+		memcachedSpec := memcachedv1.MemcachedSpec{
+			Replicas: ptr.To(int32(3)),
+		}
+		memcachedNamespace := types.NamespacedName{
+			Name:      MemcachedInstance,
+			Namespace: novaNames.NovaName.Namespace,
+		}
+		DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(novaNames.NovaName.Namespace, MemcachedInstance, memcachedSpec))
+		infra.SimulateMemcachedReady(memcachedNamespace)
+
+	})
 	When("a NovaAPI CR is created pointing to a non existent Secret", func() {
 		BeforeEach(func() {
 			spec := GetDefaultNovaAPISpec(novaNames)
@@ -187,6 +201,8 @@ var _ = Describe("NovaAPI controller", func() {
 				Expect(configData).Should(ContainSubstring("www_authenticate_uri = keystone-public-auth-url"))
 				Expect(configData).Should(
 					ContainSubstring("[upgrade_levels]\ncompute = auto"))
+				Expect(configData).To(ContainSubstring("memcache_servers="))
+				Expect(configData).To(ContainSubstring("memcached_servers="))
 				Expect(configData).Should(ContainSubstring("enforce_new_defaults=true"))
 				Expect(configData).Should(ContainSubstring("enforce_scope=true"))
 				Expect(configData).Should(ContainSubstring("policy_file=/etc/nova/policy.yaml"))
@@ -372,6 +388,18 @@ var _ = Describe("NovaAPI controller", func() {
 })
 
 var _ = Describe("NovaAPI controller", func() {
+	BeforeEach(func() {
+		memcachedSpec := memcachedv1.MemcachedSpec{
+			Replicas: ptr.To(int32(3)),
+		}
+		memcachedNamespace := types.NamespacedName{
+			Name:      MemcachedInstance,
+			Namespace: novaNames.NovaName.Namespace,
+		}
+		DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(novaNames.NovaName.Namespace, MemcachedInstance, memcachedSpec))
+		infra.SimulateMemcachedReady(memcachedNamespace)
+
+	})
 	When("NovaAPI is created with networkAttachments", func() {
 		BeforeEach(func() {
 			DeferCleanup(
@@ -819,6 +847,18 @@ var _ = Describe("NovaAPI controller", func() {
 })
 
 var _ = Describe("NovaAPI controller", func() {
+	BeforeEach(func() {
+		memcachedSpec := memcachedv1.MemcachedSpec{
+			Replicas: ptr.To(int32(3)),
+		}
+		memcachedNamespace := types.NamespacedName{
+			Name:      MemcachedInstance,
+			Namespace: novaNames.NovaName.Namespace,
+		}
+		DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(novaNames.NovaName.Namespace, MemcachedInstance, memcachedSpec))
+		infra.SimulateMemcachedReady(memcachedNamespace)
+
+	})
 	When("NovaAPI is created with TLS cert secrets", func() {
 		BeforeEach(func() {
 			spec := GetDefaultNovaAPISpec(novaNames)
