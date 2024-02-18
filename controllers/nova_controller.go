@@ -117,6 +117,10 @@ func (r *NovaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 		return ctrl.Result{}, err
 	}
 
+	if true {
+		panic("foo, bar3")
+	}
+
 	h, err := helper.NewHelper(
 		instance,
 		r.Client,
