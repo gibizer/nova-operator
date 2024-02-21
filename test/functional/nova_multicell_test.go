@@ -84,13 +84,9 @@ var _ = Describe("Nova multicell", func() {
 			memcachedSpec := memcachedv1.MemcachedSpec{
 				Replicas: ptr.To(int32(3)),
 			}
-			memcachedNamespace := types.NamespacedName{
-				Name:      MemcachedInstance,
-				Namespace: novaNames.NovaName.Namespace,
-			}
 
 			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(novaNames.NovaName.Namespace, MemcachedInstance, memcachedSpec))
-			infra.SimulateMemcachedReady(memcachedNamespace)
+			infra.SimulateMemcachedReady(novaNames.MemcachedNamespace)
 			keystone.SimulateKeystoneServiceReady(novaNames.KeystoneServiceName)
 		})
 
@@ -605,13 +601,9 @@ var _ = Describe("Nova multicell", func() {
 			memcachedSpec := memcachedv1.MemcachedSpec{
 				Replicas: ptr.To(int32(3)),
 			}
-			memcachedNamespace := types.NamespacedName{
-				Name:      MemcachedInstance,
-				Namespace: novaNames.NovaName.Namespace,
-			}
 
 			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(novaNames.NovaName.Namespace, MemcachedInstance, memcachedSpec))
-			infra.SimulateMemcachedReady(memcachedNamespace)
+			infra.SimulateMemcachedReady(novaNames.MemcachedNamespace)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(novaNames.NovaName.Namespace))
 			keystone.SimulateKeystoneServiceReady(novaNames.KeystoneServiceName)
 		})
@@ -729,13 +721,9 @@ var _ = Describe("Nova multicell", func() {
 			memcachedSpec := memcachedv1.MemcachedSpec{
 				Replicas: ptr.To(int32(3)),
 			}
-			memcachedNamespace := types.NamespacedName{
-				Name:      MemcachedInstance,
-				Namespace: novaNames.NovaName.Namespace,
-			}
 
 			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(novaNames.NovaName.Namespace, MemcachedInstance, memcachedSpec))
-			infra.SimulateMemcachedReady(memcachedNamespace)
+			infra.SimulateMemcachedReady(novaNames.MemcachedNamespace)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(novaNames.Namespace))
 			keystone.SimulateKeystoneServiceReady(novaNames.KeystoneServiceName)
 		})
@@ -792,13 +780,9 @@ var _ = Describe("Nova multicell", func() {
 			memcachedSpec := memcachedv1.MemcachedSpec{
 				Replicas: ptr.To(int32(3)),
 			}
-			memcachedNamespace := types.NamespacedName{
-				Name:      MemcachedInstance,
-				Namespace: novaNames.NovaName.Namespace,
-			}
 
 			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(novaNames.NovaName.Namespace, MemcachedInstance, memcachedSpec))
-			infra.SimulateMemcachedReady(memcachedNamespace)
+			infra.SimulateMemcachedReady(novaNames.MemcachedNamespace)
 			keystoneAPIName := keystone.CreateKeystoneAPI(novaNames.NovaName.Namespace)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystoneAPIName)
 			keystoneAPI := keystone.GetKeystoneAPI(keystoneAPIName)
