@@ -1001,11 +1001,13 @@ var _ = Describe("Nova controller without memcached", func() {
 			condition.ServiceAccountReadyCondition,
 			corev1.ConditionTrue,
 		)
-		th.ExpectCondition(
+		th.ExpectConditionWithDetails(
 			novaNames.NovaName,
 			ConditionGetterFunc(NovaConditionGetter),
 			condition.MemcachedReadyCondition,
 			corev1.ConditionFalse,
+			condition.RequestedReason,
+			" Memcached instance has not been provisioned",
 		)
 	})
 })
