@@ -196,9 +196,23 @@ func (r *NovaAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 	// all our input checks out so report InputReady
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
 
-	memcached, err := getMemcached(ctx, h, instance.Namespace, instance.Spec.MemcachedInstance, &instance.Status.Conditions)
+	memcached, err := ensureMemcached(ctx, h, instance.Namespace, instance.Spec.MemcachedInstance, &instance.Status.Conditions)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	// Add finalizer to Memcached to prevent it from being deleted now that we're using it
+	if controllerutil.AddFinalizer(memcached, h.GetFinalizer()) {
+		err := h.GetClient().Update(ctx, memcached)
+		if err != nil {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.MemcachedReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				condition.MemcachedReadyErrorMessage,
+				err.Error()))
+			return ctrl.Result{}, err
+		}
 	}
 
 	err = r.ensureConfigs(ctx, h, instance, &hashes, secret, memcached)
@@ -756,6 +770,20 @@ func (r *NovaAPIReconciler) reconcileDelete(
 	err := r.ensureKeystoneEndpointDeletion(ctx, h, instance)
 	if err != nil {
 		return err
+	}
+
+	// Remove our finalizer from Memcached
+	memcached, err := getMemcached(ctx, h, instance.Namespace, instance.Spec.MemcachedInstance)
+	if err != nil {
+		return err
+	}
+	if !k8s_errors.IsNotFound(err) && memcached != nil {
+		if controllerutil.RemoveFinalizer(memcached, h.GetFinalizer()) {
+			err := h.GetClient().Update(ctx, memcached)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	// Successfully cleaned up everything. So as the final step let's remove the

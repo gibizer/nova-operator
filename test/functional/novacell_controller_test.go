@@ -658,25 +658,27 @@ var _ = Describe("NovaCell controller", func() {
 				),
 			)
 
-			// Now simulate that the user follows our documentation and deletes
-			// the manually created NoVNCPRoxy CR
-			th.DeleteInstance(GetNovaNoVNCProxy(cell2.NoVNCProxyName))
-			// NOTE(gibi): This only needed in envtest, in a real k8s
-			// deployment the garbage collector would delete the StatefulSet
-			// when its parents, the NoVNCProxy, is deleted, but that garbage
-			// collector does not run in envtest. So we manually clean up here
-			th.DeleteInstance(th.GetStatefulSet(cell2.NoVNCProxyStatefulSetName))
+			Eventually(func(g Gomega) {
+				// Now simulate that the user follows our documentation and deletes
+				// the manually created NoVNCPRoxy CR
+				th.DeleteInstance(GetNovaNoVNCProxy(cell2.NoVNCProxyName))
+				// NOTE(gibi): This only needed in envtest, in a real k8s
+				// deployment the garbage collector would delete the StatefulSet
+				// when its parents, the NoVNCProxy, is deleted, but that garbage
+				// collector does not run in envtest. So we manually clean up here
+				th.DeleteInstance(th.GetStatefulSet(cell2.NoVNCProxyStatefulSetName))
 
-			// As the manually created NoVNCProxy is deleted the controller is
-			// unblocked to deploy its own NoVNCProxy CR
-			th.ExpectConditionWithDetails(
-				cell2.CellCRName,
-				ConditionGetterFunc(NovaCellConditionGetter),
-				novav1.NovaNoVNCProxyReadyCondition,
-				corev1.ConditionFalse,
-				condition.RequestedReason,
-				"Deployment in progress",
-			)
+				// As the manually created NoVNCProxy is deleted the controller is
+				// unblocked to deploy its own NoVNCProxy CR
+				th.ExpectConditionWithDetails(
+					cell2.CellCRName,
+					ConditionGetterFunc(NovaCellConditionGetter),
+					novav1.NovaNoVNCProxyReadyCondition,
+					corev1.ConditionFalse,
+					condition.RequestedReason,
+					"Deployment in progress",
+				)
+			}, timeout, interval).Should(Succeed())
 			th.SimulateStatefulSetReplicaReady(cell2.NoVNCProxyStatefulSetName)
 			th.ExpectCondition(
 				cell2.CellCRName,

@@ -29,6 +29,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -140,6 +141,24 @@ func (r *NovaSchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}()
 
+	if !instance.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, r.reconcileDelete(ctx, h, instance)
+	}
+
+	// We are adding Nova finalizer to Memcached CR later.
+	// So we need a finalizer on the ourselves too so that
+	// during CR delete we can have a chance to remove the finalizer from
+	// the our Memcached so that is also deleted.
+	updated := controllerutil.AddFinalizer(instance, h.GetFinalizer())
+	if updated {
+		Log.Info("Added finalizer to ourselves")
+		// we intentionally return immediately to force the deferred function
+		// to persist the Instance with the finalizer. We need to have our own
+		// finalizer persisted before we try to create the Memcached with
+		// our finalizer to avoid orphaning the Memcached.
+		return ctrl.Result{}, nil
+	}
+
 	// TODO(gibi): Can we use a simple map[string][string] for hashes?
 	// Collect hashes of all the input we depend on so that we can easily
 	// detect if something is changed.
@@ -203,9 +222,23 @@ func (r *NovaSchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// all cert input checks out so report InputReady
 	instance.Status.Conditions.MarkTrue(condition.TLSInputReadyCondition, condition.InputReadyMessage)
 
-	memcached, err := getMemcached(ctx, h, instance.Namespace, instance.Spec.MemcachedInstance, &instance.Status.Conditions)
+	memcached, err := ensureMemcached(ctx, h, instance.Namespace, instance.Spec.MemcachedInstance, &instance.Status.Conditions)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	// Add finalizer to Memcached to prevent it from being deleted now that we're using it
+	if controllerutil.AddFinalizer(memcached, h.GetFinalizer()) {
+		err := h.GetClient().Update(ctx, memcached)
+		if err != nil {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.MemcachedReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				condition.MemcachedReadyErrorMessage,
+				err.Error()))
+			return ctrl.Result{}, err
+		}
 	}
 
 	err = r.ensureConfigs(ctx, h, instance, &hashes, secret, memcached)
@@ -565,6 +598,41 @@ func (r *NovaSchedulerReconciler) ensureDeployment(
 		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, nil
+}
+
+func (r *NovaSchedulerReconciler) reconcileDelete(
+	ctx context.Context,
+	h *helper.Helper,
+	instance *novav1.NovaScheduler,
+
+) error {
+	Log := r.GetLogger(ctx)
+
+	Log.Info("Reconciling delete")
+
+	// Remove our finalizer from Memcached
+	memcached, err := getMemcached(ctx, h, instance.Namespace, instance.Spec.MemcachedInstance)
+	if err != nil {
+		return err
+	}
+	if !k8s_errors.IsNotFound(err) && memcached != nil {
+		if controllerutil.RemoveFinalizer(memcached, h.GetFinalizer()) {
+			err := h.GetClient().Update(ctx, memcached)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Successfully cleaned up everything. So as the final step let's remove the
+	// finalizer from ourselves to allow the deletion of NovaScheduler CR itself
+	updated := controllerutil.RemoveFinalizer(instance, h.GetFinalizer())
+	if updated {
+		Log.Info("Removed finalizer from ourselves")
+	}
+
+	Log.Info("Reconciled delete successfully")
+	return nil
 }
 
 func (r *NovaSchedulerReconciler) cleanServiceFromNovaDb(
