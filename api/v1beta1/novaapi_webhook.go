@@ -121,6 +121,11 @@ func (r *NovaAPI) ValidateDelete() (admission.Warnings, error) {
 	return nil, nil
 }
 
+func (r *NovaAPITemplateCore) ValidateAPIDefaultConfigOverwrite(basePath *field.Path) field.ErrorList {
+	return ValidateAPIDefaultConfigOverwrite(
+		basePath.Child("defaultConfigOverwrite"), r.DefaultConfigOverwrite)
+}
+
 func ValidateAPIDefaultConfigOverwrite(
 	basePath *field.Path,
 	defaultConfigOverwrite map[string]string,

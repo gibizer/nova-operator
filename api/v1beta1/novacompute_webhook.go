@@ -152,7 +152,7 @@ func (r *NovaComputeSpec) validate(basePath *field.Path) field.ErrorList {
 }
 
 // ValidateReplicas validates replicas depend on compute driver
-func (r *NovaComputeTemplate) ValidateIronicDriverReplicas(basePath *field.Path) field.ErrorList {
+func (r *NovaComputeTemplateCore) ValidateIronicDriverReplicas(basePath *field.Path) field.ErrorList {
 	var errors field.ErrorList
 	if *r.Replicas > 1 {
 		errors = append(
@@ -164,7 +164,7 @@ func (r *NovaComputeTemplate) ValidateIronicDriverReplicas(basePath *field.Path)
 	return errors
 }
 
-func (r *NovaComputeTemplate) ValidateDefaultConfigOverwrite(basePath *field.Path) field.ErrorList {
+func (r *NovaComputeTemplateCore) ValidateDefaultConfigOverwrite(basePath *field.Path) field.ErrorList {
 	return ValidateComputeDefaultConfigOverwrite(
 		basePath.Child("defaultConfigOverwrite"), r.DefaultConfigOverwrite)
 }

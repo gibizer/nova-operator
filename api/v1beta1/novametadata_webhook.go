@@ -123,7 +123,7 @@ func (r *NovaMetadata) ValidateDelete() (admission.Warnings, error) {
 
 // ValidateCell0 validates cell0 Metadata template. This is expected to be called
 // by higher level validation webhooks
-func (r *NovaMetadataTemplate) ValidateCell0(basePath *field.Path) field.ErrorList {
+func (r *NovaMetadataTemplateCore) ValidateCell0(basePath *field.Path) field.ErrorList {
 	var errors field.ErrorList
 	if *r.Enabled {
 		errors = append(
@@ -135,7 +135,7 @@ func (r *NovaMetadataTemplate) ValidateCell0(basePath *field.Path) field.ErrorLi
 	return errors
 }
 
-func (r *NovaMetadataTemplate) ValidateDefaultConfigOverwrite(basePath *field.Path) field.ErrorList {
+func (r *NovaMetadataTemplateCore) ValidateDefaultConfigOverwrite(basePath *field.Path) field.ErrorList {
 	return ValidateMetadataDefaultConfigOverwrite(
 		basePath.Child("defaultConfigOverwrite"),
 		r.DefaultConfigOverwrite)

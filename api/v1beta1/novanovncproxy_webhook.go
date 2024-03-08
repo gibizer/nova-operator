@@ -103,7 +103,7 @@ func (r *NovaNoVNCProxy) ValidateDelete() (admission.Warnings, error) {
 
 // ValidateCell0 validates cell0 NoVNCProxy template. This is expected to be
 // called by higher level validation webhooks
-func (r *NovaNoVNCProxyTemplate) ValidateCell0(basePath *field.Path) field.ErrorList {
+func (r *NovaNoVNCProxyTemplateCore) ValidateCell0(basePath *field.Path) field.ErrorList {
 	var errors field.ErrorList
 	if *r.Enabled {
 		errors = append(
