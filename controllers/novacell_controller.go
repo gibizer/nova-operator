@@ -76,7 +76,7 @@ func (r *NovaCellReconciler) GetLogger(ctx context.Context) logr.Logger {
 func (r *NovaCellReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
 	Log := r.GetLogger(ctx)
 
-	// Fetch the NovaAPI instance that needs to be reconciled
+	// Fetch the NovaCell instance that needs to be reconciled
 	instance := &novav1.NovaCell{}
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
@@ -112,11 +112,11 @@ func (r *NovaCellReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 	if err = r.initStatus(instance); err != nil {
 		return ctrl.Result{}, err
 	}
+	instance.Status.ObservedGeneration = instance.Generation
 
 	// Always update the instance status when exiting this function so we can
 	// persist any changes happened during the current reconciliation.
 	defer func() {
-		condition.RestoreLastTransitionTimes(&instance.Status.Conditions, savedConditions)
 		// update the Ready condition based on the sub conditions
 		if allSubConditionIsTrue(instance.Status) {
 			instance.Status.Conditions.MarkTrue(
@@ -129,6 +129,7 @@ func (r *NovaCellReconciler) Reconcile(ctx context.Context, req ctrl.Request) (r
 			instance.Status.Conditions.Set(
 				instance.Status.Conditions.Mirror(condition.ReadyCondition))
 		}
+		condition.RestoreLastTransitionTimes(&instance.Status.Conditions, savedConditions)
 		err := h.PatchInstance(ctx, instance)
 		if err != nil {
 			_err = err
@@ -385,13 +386,15 @@ func (r *NovaCellReconciler) ensureConductor(
 		Log.Info(fmt.Sprintf("NovaConductor %s.", string(op)))
 	}
 
-	instance.Status.ConductorServiceReadyCount = conductor.Status.ReadyCount
+	if conductor.Generation == conductor.Status.ObservedGeneration {
+		instance.Status.ConductorServiceReadyCount = conductor.Status.ReadyCount
 
-	c := conductor.Status.Conditions.Mirror(novav1.NovaConductorReadyCondition)
-	// NOTE(gibi): it can be nil if the NovaConductor CR is created but no
-	// reconciliation is run on it to initialize the ReadyCondition yet.
-	if c != nil {
-		instance.Status.Conditions.Set(c)
+		c := conductor.Status.Conditions.Mirror(novav1.NovaConductorReadyCondition)
+		// NOTE(gibi): it can be nil if the NovaConductor CR is created but no
+		// reconciliation is run on it to initialize the ReadyCondition yet.
+		if c != nil {
+			instance.Status.Conditions.Set(c)
+		}
 	}
 
 	return ctrl.Result{}, nil
@@ -479,12 +482,14 @@ func (r *NovaCellReconciler) ensureNoVNCProxy(
 		Log.Info(fmt.Sprintf("NovaNoVNCProxy %s.", string(op)))
 	}
 
-	instance.Status.NoVNCPRoxyServiceReadyCount = novncproxy.Status.ReadyCount
+	if novncproxy.Generation == novncproxy.Status.ObservedGeneration {
+		instance.Status.NoVNCPRoxyServiceReadyCount = novncproxy.Status.ReadyCount
 
-	c := novncproxy.Status.Conditions.Mirror(novav1.NovaNoVNCProxyReadyCondition)
+		c := novncproxy.Status.Conditions.Mirror(novav1.NovaNoVNCProxyReadyCondition)
 
-	if c != nil {
-		instance.Status.Conditions.Set(c)
+		if c != nil {
+			instance.Status.Conditions.Set(c)
+		}
 	}
 
 	return ctrl.Result{}, nil
@@ -600,14 +605,15 @@ func (r *NovaCellReconciler) ensureMetadata(
 	if op != controllerutil.OperationResultNone {
 		Log.Info(fmt.Sprintf("NovaMetadata %s.", string(op)))
 	}
+	if metadata.Generation == metadata.Status.ObservedGeneration {
+		instance.Status.MetadataServiceReadyCount = metadata.Status.ReadyCount
 
-	instance.Status.MetadataServiceReadyCount = metadata.Status.ReadyCount
-
-	c := metadata.Status.Conditions.Mirror(novav1.NovaMetadataReadyCondition)
-	// NOTE(gibi): it can be nil if the NovaMetadata CR is created but no
-	// reconciliation is run on it to initialize the ReadyCondition yet.
-	if c != nil {
-		instance.Status.Conditions.Set(c)
+		c := metadata.Status.Conditions.Mirror(novav1.NovaMetadataReadyCondition)
+		// NOTE(gibi): it can be nil if the NovaMetadata CR is created but no
+		// reconciliation is run on it to initialize the ReadyCondition yet.
+		if c != nil {
+			instance.Status.Conditions.Set(c)
+		}
 	}
 
 	return ctrl.Result{}, nil
@@ -754,7 +760,7 @@ func (r *NovaCellReconciler) ensureNovaCompute(
 		Log.Info(fmt.Sprintf("NovaCompute %s, NovaCompute.Name %s .", string(op), novacompute.Name))
 	}
 
-	if novacompute.IsReady() {
+	if novacompute.Generation == novacompute.Status.ObservedGeneration && novacompute.IsReady() {
 		// We wait for the novacompute to become Ready before we map it deployed.
 		computeStatus.Deployed = true
 	}
