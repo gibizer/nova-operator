@@ -66,6 +66,8 @@ github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9Gz0M=
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
+github.com/mrkisaolamb/lib-common/modules/common v0.0.0-20240430131716-79f6ee359e51 h1:qJii5OtI9BVXUnu41rev/GIjAqrsTU8XSbyuZzNEXRw=
+github.com/mrkisaolamb/lib-common/modules/common v0.0.0-20240430131716-79f6ee359e51/go.mod h1:lYhFzul37AR/6gAhTAA1KKWbOlzB3F/7014lejn883c=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
 github.com/onsi/ginkgo/v2 v2.17.2 h1:7eMhcy3GimbsA3hEnVKdw/PQM9XN9krpKVXsZdph0/g=
@@ -78,8 +80,6 @@ github.com/openstack-k8s-operators/infra-operator/apis v0.3.1-0.20240429104248-2
 github.com/openstack-k8s-operators/infra-operator/apis v0.3.1-0.20240429104248-25176c735750/go.mod h1:QN2DJpfEc+mbvvfhoCuJ/UhQzvw12Mf+8nS0QX1HGIg=
 github.com/openstack-k8s-operators/keystone-operator/api v0.3.1-0.20240429164853-7e1e3b111ee9 h1:aS7xUxC/uOXfw0T4ARTu0G1qb6eJ0WnB2JRv9donPOE=
 github.com/openstack-k8s-operators/keystone-operator/api v0.3.1-0.20240429164853-7e1e3b111ee9/go.mod h1:Y/ge/l24phVaJb9S8mYRjtnDkohFkX/KEOUXLArcyvQ=
-github.com/openstack-k8s-operators/lib-common/modules/common v0.3.1-0.20240429052447-09a614506ca6 h1:WLsG3Ko+phW5xZJjncypLWGASoLqKrt05qN9Zxsad6g=
-github.com/openstack-k8s-operators/lib-common/modules/common v0.3.1-0.20240429052447-09a614506ca6/go.mod h1:lYhFzul37AR/6gAhTAA1KKWbOlzB3F/7014lejn883c=
 github.com/openstack-k8s-operators/lib-common/modules/openstack v0.3.1-0.20240429052447-09a614506ca6 h1:/mhzQQ9FF70z00zZD7dpgOoNXvEu9q68oob3oAiJW08=
 github.com/openstack-k8s-operators/lib-common/modules/openstack v0.3.1-0.20240429052447-09a614506ca6/go.mod h1:mrRNYeg8jb1zgGsufpN1/IB3sdbaST8btTBLwQ+taaA=
 github.com/openstack-k8s-operators/lib-common/modules/test v0.3.1-0.20240429052447-09a614506ca6 h1:Xx8uGcklRNHgBKTftNcK/Ob3qxiKwxUf5fVjtWCvOHI=
