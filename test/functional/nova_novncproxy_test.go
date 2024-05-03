@@ -705,6 +705,7 @@ var _ = Describe("NovaNoVNCProxy controller", func() {
 		It("and deployment is Ready", func() {
 			ss := th.GetStatefulSet(cell1.NoVNCProxyStatefulSetName)
 			Expect(int(*ss.Spec.Replicas)).To(Equal(0))
+			th.SimulateStatefulSetReplicaReady(cell1.NoVNCProxyStatefulSetName)
 			th.ExpectCondition(
 				cell1.NoVNCProxyName,
 				ConditionGetterFunc(NoVNCProxyConditionGetter),

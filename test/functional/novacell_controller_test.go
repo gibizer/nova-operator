@@ -1018,6 +1018,8 @@ var _ = Describe("NovaCell controller", func() {
 				ss := th.GetStatefulSet(cell1.NoVNCProxyStatefulSetName)
 				g.Expect(ss.Spec.Replicas).To(Equal(ptr.To[int32](0)))
 			}, timeout, interval).Should(Succeed())
+
+			th.SimulateStatefulSetReplicaReady(cell1.NoVNCProxyStatefulSetName)
 			th.ExpectCondition(
 				cell1.CellCRName,
 				ConditionGetterFunc(NovaCellConditionGetter),
