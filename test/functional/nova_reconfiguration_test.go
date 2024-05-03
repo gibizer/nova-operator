@@ -462,6 +462,20 @@ var _ = Describe("Nova reconfiguration", func() {
 			// so the test needs to simulate that the new StatefulSet Generation is Ready
 			th.SimulateStatefulSetReplicaReady(cell1.NoVNCProxyStatefulSetName)
 
+			// Expect that the compute config is updated with the new transport URL
+			Eventually(func(g Gomega) {
+				configDataMap := th.GetSecret(cell1.ComputeConfigSecretName)
+				g.Expect(configDataMap).ShouldNot(BeNil())
+				g.Expect(configDataMap.Data).Should(HaveKey("01-nova.conf"))
+				configData := string(configDataMap.Data["01-nova.conf"])
+				g.Expect(configData).Should(ContainSubstring("transport_url=rabbit://alternate-mq-for-cell1/fake"))
+			}, timeout, interval).Should(Succeed())
+			Expect(GetNovaCell(cell1.CellCRName).Status.Hash[cell1.ComputeConfigSecretName.Name]).NotTo(Equal(oldComputeConfigHash))
+			// and therefore the statefulset is also updated with a new config
+			// hash so the test needs to make the Generation of the StatefulSet
+			// Ready
+			th.SimulateStatefulSetReplicaReady(cell1.NovaComputeStatefulSetName)
+
 			// Expect that nova controller updates the mapping Job to re-run that
 			// to update the CellMapping table in the nova_api DB.
 			Eventually(func(g Gomega) {
@@ -478,16 +492,6 @@ var _ = Describe("Nova reconfiguration", func() {
 				newCell1Hash := GetNova(novaNames.NovaName).Status.RegisteredCells[cell1.CellCRName.Name]
 				g.Expect(newCell1Hash).NotTo(Equal(oldCell1Hash))
 			}, timeout, interval).Should(Succeed())
-
-			// Expect that the compute config is updated with the new transport URL
-			Eventually(func(g Gomega) {
-				configDataMap := th.GetSecret(cell1.ComputeConfigSecretName)
-				g.Expect(configDataMap).ShouldNot(BeNil())
-				g.Expect(configDataMap.Data).Should(HaveKey("01-nova.conf"))
-				configData := string(configDataMap.Data["01-nova.conf"])
-				g.Expect(configData).Should(ContainSubstring("transport_url=rabbit://alternate-mq-for-cell1/fake"))
-			}, timeout, interval).Should(Succeed())
-			Expect(GetNovaCell(cell1.CellCRName).Status.Hash[cell1.ComputeConfigSecretName.Name]).NotTo(Equal(oldComputeConfigHash))
 		})
 	})
 
@@ -501,7 +505,7 @@ var _ = Describe("Nova reconfiguration", func() {
 				nova := GetNova(novaNames.NovaName)
 				cell1 := nova.Spec.CellTemplates["cell1"]
 				ironicTemplate := cell1.NovaComputeTemplates[ironicComputeName]
-				// we change replicas to rerun job.In that case replica can be only set to 0
+				// we change replicas to rerun job. In that case replica can be only set to 0
 				// because ironicDriver can't have more than 1 replica
 				ironicTemplate.Replicas = ptr.To(int32(0))
 				cell1.NovaComputeTemplates[ironicComputeName] = ironicTemplate
@@ -509,6 +513,15 @@ var _ = Describe("Nova reconfiguration", func() {
 
 				g.Expect(k8sClient.Update(ctx, nova)).To(Succeed())
 			}, timeout, interval).Should(Succeed())
+			// As the Compute replica is updated, we expect that the underlying
+			// statefulset is updated
+			Eventually(func(g Gomega) {
+				ss := th.GetStatefulSet(cell1.NovaComputeStatefulSetName)
+				g.Expect(ss.Spec.Replicas).To(Equal(ptr.To[int32](0)))
+			}, timeout, interval).Should(Succeed())
+			// As the statefulset is updated the test needs to make it's new
+			// Generation ready
+			th.SimulateStatefulSetReplicaReady(cell1.NovaComputeStatefulSetName)
 
 			// Expect that nova controller updates the mapping Job to re-run that
 			// to update the CellMapping table in the nova_api DB.
