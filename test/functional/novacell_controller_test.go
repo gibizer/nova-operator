@@ -668,6 +668,14 @@ var _ = Describe("NovaCell controller", func() {
 
 				g.Expect(k8sClient.Update(ctx, novaCell)).To(Succeed())
 			}, timeout, interval).Should(Succeed())
+			// to keep the conductor ready after the replica change we need
+			// to make sure the conductor statefulset set to ready after
+			// the replica change.
+			Eventually(func(g Gomega) {
+				ss := th.GetStatefulSet(cell2.ConductorStatefulSetName)
+				g.Expect(ss.Spec.Replicas).To(Equal(ptr.To[int32](3)))
+			}, timeout, interval).Should(Succeed())
+			th.SimulateStatefulSetReplicaReady(cell2.ConductorStatefulSetName)
 
 			// Just ensure that it is not automatically gets owned or deleted
 			// by the cell
@@ -804,6 +812,14 @@ var _ = Describe("NovaCell controller", func() {
 
 				g.Expect(k8sClient.Update(ctx, novaCell)).To(Succeed())
 			}, timeout, interval).Should(Succeed())
+			// to keep the conductor ready after the replica change we need
+			// to make sure the conductor statefulset set to ready after
+			// the replica change.
+			Eventually(func(g Gomega) {
+				ss := th.GetStatefulSet(cell2.ConductorStatefulSetName)
+				g.Expect(ss.Spec.Replicas).To(Equal(ptr.To[int32](3)))
+			}, timeout, interval).Should(Succeed())
+			th.SimulateStatefulSetReplicaReady(cell2.ConductorStatefulSetName)
 
 			// Just ensure that it is not automatically gets owned or deleted
 			// by the cell

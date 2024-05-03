@@ -722,10 +722,11 @@ var _ = Describe("Nova multi cell", func() {
 			infra.SimulateTransportURLReady(cell0.TransportURLName)
 			infra.SimulateTransportURLReady(cell1.TransportURLName)
 
-			// We requested 0 replicas from the cell0 conductor so the
-			// conductor is ready even if 0 replicas is running but all
-			// the necessary steps, i.e. db-sync is run successfully
+			// We requested 0 replicas from the cell0 conductor, the
+			// conductor will run the db-sync and be ready as soon as the
+			// statefulset is ready with 0 replicas
 			th.SimulateJobSuccess(cell0.DBSyncJobName)
+			th.SimulateStatefulSetReplicaReady(cell0.ConductorStatefulSetName)
 			th.ExpectCondition(
 				cell0.ConductorName,
 				ConditionGetterFunc(NovaConductorConditionGetter),

@@ -362,6 +362,19 @@ var _ = Describe("Nova reconfiguration", func() {
 				}
 				g.Expect(k8sClient.Update(ctx, nova)).To(Succeed())
 
+				conductorDeployment := th.GetStatefulSet(cell0.ConductorStatefulSetName)
+				g.Expect(conductorDeployment.Spec.Template.Spec.NodeSelector).To(Equal(conductorSelector))
+				// When the conductor statefulsets are updated we need to make them
+				// ready with the new Generation to make the cell ready and allow the
+				// nova controller to potentially update the top level services too
+				th.SimulateStatefulSetReplicaReady(cell0.ConductorStatefulSetName)
+				conductorDeployment = th.GetStatefulSet(cell1.ConductorStatefulSetName)
+				g.Expect(conductorDeployment.Spec.Template.Spec.NodeSelector).To(Equal(conductorSelector))
+				th.SimulateStatefulSetReplicaReady(cell1.ConductorStatefulSetName)
+				conductorDeployment = th.GetStatefulSet(cell2.ConductorStatefulSetName)
+				g.Expect(conductorDeployment.Spec.Template.Spec.NodeSelector).To(Equal(conductorSelector))
+				th.SimulateStatefulSetReplicaReady(cell2.ConductorStatefulSetName)
+
 				apiDeployment := th.GetStatefulSet(novaNames.APIStatefulSetName)
 				g.Expect(apiDeployment.Spec.Template.Spec.NodeSelector).To(Equal(serviceSelector))
 				schedulerDeployment := th.GetStatefulSet(novaNames.SchedulerStatefulSetName)
@@ -369,12 +382,6 @@ var _ = Describe("Nova reconfiguration", func() {
 				metadataDeployment := th.GetStatefulSet(novaNames.MetadataStatefulSetName)
 				g.Expect(metadataDeployment.Spec.Template.Spec.NodeSelector).To(Equal(serviceSelector))
 
-				conductorDeployment := th.GetStatefulSet(cell0.ConductorStatefulSetName)
-				g.Expect(conductorDeployment.Spec.Template.Spec.NodeSelector).To(Equal(conductorSelector))
-				conductorDeployment = th.GetStatefulSet(cell1.ConductorStatefulSetName)
-				g.Expect(conductorDeployment.Spec.Template.Spec.NodeSelector).To(Equal(conductorSelector))
-				conductorDeployment = th.GetStatefulSet(cell2.ConductorStatefulSetName)
-				g.Expect(conductorDeployment.Spec.Template.Spec.NodeSelector).To(Equal(conductorSelector))
 			}, timeout, interval).Should(Succeed())
 
 			// Set the global NodeSelector and assert that it is propagated
@@ -449,6 +456,10 @@ var _ = Describe("Nova reconfiguration", func() {
 				configData := string(configDataMap.Data["01-nova.conf"])
 				g.Expect(configData).Should(ContainSubstring("transport_url=rabbit://alternate-mq-for-cell1/fake"))
 			}, timeout, interval).Should(Succeed())
+			// and therefore the statefulset is also updated with a new config
+			// hash so the test needs to make the Generation of the StatefulSet
+			// Ready
+			th.SimulateStatefulSetReplicaReady(cell1.ConductorStatefulSetName)
 
 			// Expect that the NovaNoVNCProxy config is updated with the new transport URL
 			Eventually(func(g Gomega) {
