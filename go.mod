@@ -6,24 +6,24 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
-	github.com/gophercloud/gophercloud v1.12.0
+	github.com/gophercloud/gophercloud v1.14.0
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.4.0
-	github.com/onsi/ginkgo/v2 v2.19.0
-	github.com/onsi/gomega v1.33.1
-	github.com/openstack-k8s-operators/infra-operator/apis v0.3.1-0.20240701051058-e23cdfd81161
-	github.com/openstack-k8s-operators/keystone-operator/api v0.3.1-0.20240703053916-a2bf14020ef4
-	github.com/openstack-k8s-operators/lib-common/modules/common v0.3.1-0.20240624132705-6c8da3c0bbfd
-	github.com/openstack-k8s-operators/lib-common/modules/openstack v0.3.1-0.20240624132705-6c8da3c0bbfd
-	github.com/openstack-k8s-operators/lib-common/modules/test v0.3.1-0.20240624132705-6c8da3c0bbfd
-	github.com/openstack-k8s-operators/mariadb-operator/api v0.3.1-0.20240626205513-5c175a95f408
+	github.com/onsi/ginkgo/v2 v2.19.1
+	github.com/onsi/gomega v1.34.1
+	github.com/openstack-k8s-operators/infra-operator/apis v0.4.1-0.20240806064941-b443f719b8b7
+	github.com/openstack-k8s-operators/keystone-operator/api v0.4.1-0.20240806171358-1c577c9ef576
+	github.com/openstack-k8s-operators/lib-common/modules/common v0.4.1-0.20240806143713-80a1935f500e
+	github.com/openstack-k8s-operators/lib-common/modules/openstack v0.4.1-0.20240806143713-80a1935f500e
+	github.com/openstack-k8s-operators/lib-common/modules/test v0.4.1-0.20240806143713-80a1935f500e
+	github.com/openstack-k8s-operators/mariadb-operator/api v0.4.1-0.20240806091527-f02e6eab246b
 	github.com/openstack-k8s-operators/nova-operator/api v0.0.0-20221209164002-f9e6b9363961
 	go.uber.org/zap v1.27.0
-	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a
+	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.28.11
-	k8s.io/apimachinery v0.28.11
-	k8s.io/client-go v0.28.11
-	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
+	k8s.io/api v0.28.12
+	k8s.io/apimachinery v0.28.12
+	k8s.io/client-go v0.28.12
+	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 	sigs.k8s.io/controller-runtime v0.16.6
 )
 
@@ -61,21 +61,21 @@ require (
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/mod v0.17.0 // indirect
-	golang.org/x/net v0.25.0 // indirect
+	golang.org/x/mod v0.19.0 // indirect
+	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/oauth2 v0.16.0 // indirect
-	golang.org/x/sys v0.20.0 // indirect
-	golang.org/x/term v0.20.0 // indirect
-	golang.org/x/text v0.15.0 // indirect
+	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/term v0.22.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.21.0 // indirect
+	golang.org/x/tools v0.23.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/protobuf v1.33.0 // indirect
+	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/apiextensions-apiserver v0.28.11 // indirect
-	k8s.io/component-base v0.28.11 // indirect
+	k8s.io/apiextensions-apiserver v0.28.12 // indirect
+	k8s.io/component-base v0.28.12 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
