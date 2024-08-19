@@ -168,25 +168,29 @@ var _ = Describe("Nova reconfiguration", func() {
 
 		CreateNovaWith3CellsAndEnsureReady(novaNames)
 	})
-	When("cell2 is deleted", func() {
+	When("cell1 is deleted", func() {
 		It("cell cr is deleted", func() {
 			Eventually(func(g Gomega) {
 				nova := GetNova(novaNames.NovaName)
 
-				delete(nova.Spec.CellTemplates, "cell2")
+				delete(nova.Spec.CellTemplates, "cell1")
 
 				g.Expect(k8sClient.Update(ctx, nova)).To(Succeed())
 			}, timeout, interval).Should(Succeed())
 
 			Eventually(func(g Gomega) {
 				nova := GetNova(novaNames.NovaName)
-				g.Expect(nova.Status.RegisteredCells).NotTo(HaveKey(cell2.CellCRName.Name))
+				g.Expect(nova.Status.RegisteredCells).NotTo(HaveKey(cell1.CellCRName.Name))
 			}, timeout, interval).Should(Succeed())
 
+			NovaCellNotExists(cell1.CellCRName)
 			Eventually(func(g Gomega) {
-				instance := &novav1.NovaCell{}
-				g.Expect(k8sClient.Get(ctx, cell2.CellCRName, instance)).ShouldNot(Succeed())
+				mappingJob := th.GetJob(cell1.CellDeleteJobName)
+				newJobInputHash := GetEnvVarValue(
+					mappingJob.Spec.Template.Spec.Containers[0].Env, "INPUT_HASH", "")
+				g.Expect(newJobInputHash).NotTo(BeNil())
 			}, timeout, interval).Should(Succeed())
+
 		})
 	})
 	When("cell0 conductor replicas is set to 0", func() {
