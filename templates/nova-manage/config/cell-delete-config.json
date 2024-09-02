@@ -1,5 +1,5 @@
 {
-    "command": "/bin/ensure_cell_mapping.sh",
+    "command": "/bin/delete_cell.sh",
     "config_files": [
         {
             "source": "/var/lib/openstack/config/nova-blank.conf",
