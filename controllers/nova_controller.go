@@ -684,15 +684,54 @@ func DeleteDatabaseAndAccountFinalizers(
 		return err
 	}
 
+	account, err := mariadbv1.GetAccount(ctx, h, accountName, namespace)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		return err
+	}
+	if err == nil {
+		// NOTE(gibi): this might be controversial as we cannot be sure if
+		// Nova got a pre-created account from outside or created its own.
+		// Today it is always the nova controller who creates the Account but
+		// it might change in the future.
+		// Still as we need to delete the MariaDBDatabase we need to get rid
+		// of the Account. Also that Account in that DB will be pointless
+		// if the DB is gone.
+		err := h.GetClient().Delete(ctx, account)
+		if err != nil {
+			return err
+		}
+		util.LogForObject(h, "Deleted MariaDBAccount", account)
+	}
+
+	// NOTE(gibi): This is also controversial as we don't know if the account
+	// secret was created by us by falling back to create the MariaDBAccount.
+	// Still MariaDBAccount cleanup does not delete the secret so we have to.
+	err = secret.DeleteSecretsWithName(ctx, h, account.Spec.Secret, namespace)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		return err
+	}
+
 	mariaDBDatabase, err := GetDatabase(ctx, h, name, namespace)
 	if err != nil && !k8s_errors.IsNotFound(err) {
 		return err
-	} else if err == nil && controllerutil.RemoveFinalizer(mariaDBDatabase, h.GetFinalizer()) {
-		err := h.GetClient().Update(ctx, mariaDBDatabase)
-		if err != nil && !k8s_errors.IsNotFound(err) {
+	} else if err == nil {
+		if controllerutil.RemoveFinalizer(mariaDBDatabase, h.GetFinalizer()) {
+			err := h.GetClient().Update(ctx, mariaDBDatabase)
+			if err != nil && !k8s_errors.IsNotFound(err) {
+				return err
+			}
+			util.LogForObject(
+				h,
+				fmt.Sprintf(
+					"Removed finalizer %s from MariaDBDatabase %s", h.GetFinalizer(), mariaDBDatabase.Spec.Name),
+				mariaDBDatabase)
+		}
+
+		err := h.GetClient().Delete(ctx, mariaDBDatabase)
+		if err != nil {
 			return err
 		}
-		util.LogForObject(h, fmt.Sprintf("Removed finalizer %s from MariaDBDatabase %s", h.GetFinalizer(), mariaDBDatabase.Spec.Name), mariaDBDatabase)
+		util.LogForObject(h, "Deleted MariaDBDatabase", mariaDBDatabase)
 	}
 
 	return nil
@@ -765,7 +804,16 @@ func (r *NovaReconciler) ensureCellDeleted(
 
 	secretName := getNovaCellCRName(instance.Name, cellName)
 	err = secret.DeleteSecretsWithName(ctx, h, secretName, instance.Namespace)
-	if err != nil {
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		return err
+	}
+	configSecret, scriptSecret := r.getNovaManageJobSecretNames(cell)
+	err = secret.DeleteSecretsWithName(ctx, h, configSecret, instance.Namespace)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		return err
+	}
+	err = secret.DeleteSecretsWithName(ctx, h, scriptSecret, instance.Namespace)
+	if err != nil && !k8s_errors.IsNotFound(err) {
 		return err
 	}
 
@@ -777,8 +825,7 @@ func (r *NovaReconciler) ensureCellDeleted(
 		},
 	}
 	err = r.Client.Delete(ctx, transportURL)
-
-	if err != nil {
+	if err != nil && !k8s_errors.IsNotFound(err) {
 		return err
 	}
 
@@ -899,6 +946,14 @@ func (r *NovaReconciler) initConditions(
 	return nil
 }
 
+func (r *NovaReconciler) getNovaManageJobSecretNames(
+	cell *novav1.NovaCell,
+) (configName string, scriptName string) {
+	configName = fmt.Sprintf("%s-config-data", cell.Name+"-manage")
+	scriptName = fmt.Sprintf("%s-scripts", cell.Name+"-manage")
+	return
+}
+
 func (r *NovaReconciler) ensureNovaManageJobSecret(
 	ctx context.Context, h *helper.Helper, instance *novav1.Nova,
 	cell *novav1.NovaCell,
@@ -907,8 +962,7 @@ func (r *NovaReconciler) ensureNovaManageJobSecret(
 	cellTransportURL string,
 	cellDB *mariadbv1.Database,
 ) (map[string]env.Setter, string, string, error) {
-	configName := fmt.Sprintf("%s-config-data", cell.Name+"-manage")
-	scriptName := fmt.Sprintf("%s-scripts", cell.Name+"-manage")
+	configName, scriptName := r.getNovaManageJobSecretNames(cell)
 
 	cmLabels := labels.GetLabels(
 		instance, labels.GetGroupLabel(NovaLabelPrefix), map[string]string{},
