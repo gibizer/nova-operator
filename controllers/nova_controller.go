@@ -619,121 +619,43 @@ func (r *NovaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 	return ctrl.Result{}, nil
 }
 
-// GetDatabase returns an existing MariaDBDatabase object from the cluster
-func GetDatabase(ctx context.Context,
-	h *helper.Helper,
-	name string, namespace string,
-) (*mariadbv1.MariaDBDatabase, error) {
-	mariaDBDatabase := &mariadbv1.MariaDBDatabase{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-	}
-	objectKey := client.ObjectKeyFromObject(mariaDBDatabase)
-
-	err := h.GetClient().Get(ctx, objectKey, mariaDBDatabase)
-	if err != nil {
-		return nil, err
-	}
-	return mariaDBDatabase, err
-}
-
-func DeleteDatabaseAndAccountFinalizers(
+func (r *NovaReconciler) ensureAccountDeletedIfOwned(
 	ctx context.Context,
 	h *helper.Helper,
-	name string,
+	instance *novav1.Nova,
 	accountName string,
-	namespace string,
 ) error {
+	Log := r.GetLogger(ctx)
 
-	databaseAccount, err := mariadbv1.GetAccount(ctx, h, accountName, namespace)
+	account, err := mariadbv1.GetAccount(ctx, h, accountName, instance.Namespace)
 	if err != nil && !k8s_errors.IsNotFound(err) {
 		return err
-	} else if err == nil {
-		if databaseAccount.Spec.Secret != "" {
-			dbSecret, _, err := secret.GetSecret(ctx, h, databaseAccount.Spec.Secret, namespace)
-			if err != nil && !k8s_errors.IsNotFound(err) {
-				return err
-			}
-
-			if err == nil && controllerutil.RemoveFinalizer(dbSecret, h.GetFinalizer()) {
-				err := h.GetClient().Update(ctx, dbSecret)
-				if err != nil && !k8s_errors.IsNotFound(err) {
-					return err
-				}
-				util.LogForObject(h, fmt.Sprintf("Removed finalizer %s from Secret %s", h.GetFinalizer(), dbSecret.Name), dbSecret)
-			}
-		}
-
-		if controllerutil.RemoveFinalizer(databaseAccount, h.GetFinalizer()) {
-			err := h.GetClient().Update(ctx, databaseAccount)
-			if err != nil && !k8s_errors.IsNotFound(err) {
-				return err
-			}
-			util.LogForObject(h, fmt.Sprintf("Removed finalizer %s from MariaDBAccount %s", h.GetFinalizer(), databaseAccount.Name), databaseAccount)
-		}
+	}
+	if k8s_errors.IsNotFound(err) {
+		// Nothing to delete
+		return nil
 	}
 
-	// also do a delete for "unused" MariaDBAccounts, associated with
-	// this MariaDBDatabase.
-	err = mariadbv1.DeleteUnusedMariaDBAccountFinalizers(
-		ctx, h, name, accountName, namespace,
-	)
+	// If it is not created by us, we don't clean it up
+	if !OwnedBy(account, instance) {
+		Log.Info("MariaDBAccount in not owned by Nova, not deleting", "account", account)
+		return nil
+	}
+
+	// NOTE(gibi): We need to delete the Secret first and then the Account
+	// otherwise we cannot retry the Secret deletion when the Account is
+	// gone as we will not know the name of the Secret. This logic should
+	// be moved to the mariadb-operator.
+	err = secret.DeleteSecretsWithName(ctx, h, account.Spec.Secret, instance.Namespace)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		return err
+	}
+	err = r.Client.Delete(ctx, account)
 	if err != nil && !k8s_errors.IsNotFound(err) {
 		return err
 	}
 
-	account, err := mariadbv1.GetAccount(ctx, h, accountName, namespace)
-	if err != nil && !k8s_errors.IsNotFound(err) {
-		return err
-	}
-	if err == nil {
-		// NOTE(gibi): this might be controversial as we cannot be sure if
-		// Nova got a pre-created account from outside or created its own.
-		// Today it is always the nova controller who creates the Account but
-		// it might change in the future.
-		// Still as we need to delete the MariaDBDatabase we need to get rid
-		// of the Account. Also that Account in that DB will be pointless
-		// if the DB is gone.
-		err := h.GetClient().Delete(ctx, account)
-		if err != nil {
-			return err
-		}
-		util.LogForObject(h, "Deleted MariaDBAccount", account)
-	}
-
-	// NOTE(gibi): This is also controversial as we don't know if the account
-	// secret was created by us by falling back to create the MariaDBAccount.
-	// Still MariaDBAccount cleanup does not delete the secret so we have to.
-	err = secret.DeleteSecretsWithName(ctx, h, account.Spec.Secret, namespace)
-	if err != nil && !k8s_errors.IsNotFound(err) {
-		return err
-	}
-
-	mariaDBDatabase, err := GetDatabase(ctx, h, name, namespace)
-	if err != nil && !k8s_errors.IsNotFound(err) {
-		return err
-	} else if err == nil {
-		if controllerutil.RemoveFinalizer(mariaDBDatabase, h.GetFinalizer()) {
-			err := h.GetClient().Update(ctx, mariaDBDatabase)
-			if err != nil && !k8s_errors.IsNotFound(err) {
-				return err
-			}
-			util.LogForObject(
-				h,
-				fmt.Sprintf(
-					"Removed finalizer %s from MariaDBDatabase %s", h.GetFinalizer(), mariaDBDatabase.Spec.Name),
-				mariaDBDatabase)
-		}
-
-		err := h.GetClient().Delete(ctx, mariaDBDatabase)
-		if err != nil {
-			return err
-		}
-		util.LogForObject(h, "Deleted MariaDBDatabase", mariaDBDatabase)
-	}
-
+	Log.Info("Deleted MariaDBAccount", "account", account)
 	return nil
 }
 
@@ -757,7 +679,9 @@ func (r *NovaReconciler) ensureCellDeleted(
 
 	err := r.Client.Get(ctx, fullCellName, cell)
 	if k8s_errors.IsNotFound(err) {
-		// Nothing to do as it does not exists
+		// We cannot do further cleanup of the MariaDBDatabase and
+		// MariaDBAccount as their name is only available in the NovaCell CR
+		// since the cell definition is removed from the Nova CR already.
 		return nil
 	}
 	if err != nil {
@@ -765,15 +689,10 @@ func (r *NovaReconciler) ensureCellDeleted(
 	}
 	// If it is not created by us, we don't touch it
 	if !OwnedBy(cell, instance) {
-		Log.Info("CellName isn't defined in the nova, but there is a  "+
+		Log.Info("Cell isn't defined in the Nova, but there is a  "+
 			"Cell CR not owned by us. Not deleting it.",
 			"cell", cell)
 		return nil
-	}
-
-	err = r.Client.Delete(ctx, cell)
-	if err != nil && k8s_errors.IsNotFound(err) {
-		return err
 	}
 
 	dbName, accountName := novaapi.ServiceName+"-"+cell.Spec.CellName, cell.Spec.CellDatabaseAccount
@@ -829,12 +748,38 @@ func (r *NovaReconciler) ensureCellDeleted(
 		return err
 	}
 
-	err = DeleteDatabaseAndAccountFinalizers(ctx, h, dbName, accountName, instance.ObjectMeta.Namespace)
-
+	err = mariadbv1.DeleteDatabaseAndAccountFinalizers(
+		ctx, h, dbName, accountName, instance.Namespace)
 	if err != nil {
 		return err
 	}
-	Log.Info("Cell isn't defined in the nova, so deleted cell", "cell", cell)
+
+	err = r.ensureAccountDeletedIfOwned(ctx, h, instance, accountName)
+	if err != nil {
+		return err
+	}
+
+	database := &mariadbv1.MariaDBDatabase{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dbName,
+			Namespace: instance.Namespace,
+		},
+	}
+	err = r.Client.Delete(ctx, database)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		return err
+	}
+	Log.Info("Deleted MariaDBDatabase", "database", database)
+
+	// Finally we delete the NovaCell CR. We need to do it as the last step
+	// otherwise we cannot retry the above cleanup as we won't have the data
+	// what to clean up.
+	err = r.Client.Delete(ctx, cell)
+	if err != nil && k8s_errors.IsNotFound(err) {
+		return err
+	}
+
+	Log.Info("Cell isn't defined in the Nova CR, so it is deleted", "cell", cell)
 	return nil
 }
 
