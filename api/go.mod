@@ -7,8 +7,8 @@ require (
 	github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20260626110212-c33a1507c26f
 	github.com/openstack-k8s-operators/lib-common/modules/common v0.6.1-0.20260626101608-0959e9d46047
 	github.com/robfig/cron/v3 v3.0.1
-	k8s.io/api v0.31.14
-	k8s.io/apimachinery v0.31.14
+	k8s.io/api v0.33.13
+	k8s.io/apimachinery v0.33.13
 	k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d
 	sigs.k8s.io/controller-runtime v0.19.7
 )
@@ -59,8 +59,8 @@ require (
 	google.golang.org/protobuf v1.36.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.33.2 // indirect
-	k8s.io/client-go v0.31.14 // indirect
+	k8s.io/apiextensions-apiserver v0.33.13 // indirect
+	k8s.io/client-go v0.33.13 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250902184714-7fc278399c7f // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
